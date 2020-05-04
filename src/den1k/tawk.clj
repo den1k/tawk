@@ -1,18 +1,62 @@
 (ns den1k.tawk
   (:require [cognitect.transit :as transit])
-  (:import (java.io InputStream ByteArrayOutputStream)))
+  (:import (java.io InputStream ByteArrayOutputStream)
+           (com.cognitect.transit ReadHandler WriteHandler)
+           (clojure.lang PersistentTreeMap PersistentArrayMap MapEntry)))
+
+(def default-writer-options
+  {:handlers
+   {PersistentArrayMap
+    (reify
+      WriteHandler
+      (tag [_ _] "array-map")
+      (rep [_ x] (into [] cat x)))
+    PersistentTreeMap
+    (reify
+      WriteHandler
+      (tag [_ _] "sorted-map")
+      (rep [_ x] (into {} x)))}})
 
 (defn transit-encode
   "Resolve and apply Transit's JSON/MessagePack encoding."
   [out type & [opts]]
   (let [output (ByteArrayOutputStream.)]
-    (transit/write (transit/writer output type opts) out)
+    (transit/write (transit/writer output type (merge opts default-writer-options)) out)
     (.toByteArray output)))
+
+(def default-reader-options
+  {:handlers
+   {"array-map"
+    (reify
+      ReadHandler
+      (fromRep [_ x] (apply array-map x)))
+    "sorted-map"
+    (reify
+      ReadHandler
+      (fromRep [_ x] (into (sorted-map) x)))}})
 
 (defn parse-transit
   "Resolve and apply Transit's JSON/MessagePack decoding."
   [^InputStream in type & [opts]]
-  (transit/read (transit/reader in type opts)))
+  (transit/read (transit/reader in type (merge default-reader-options opts))))
+
+
+
+(comment
+
+ (defn roundtrip [x]
+   (-> x
+       (transit-encode :json)
+       (clojure.java.io/input-stream)
+       (parse-transit :json)))
+
+ (let [am (apply array-map (range 100))]
+   (= (vec (roundtrip am)) (vec am)))
+
+ (let [sm (sorted-map 5 5 6 6 1 1 2 2 3 3 4 4)]
+   (= (vec (roundtrip sm)) (vec sm)))
+
+ )
 
 (defn transit-encode-json-with-meta [out & [opts]]
   (transit-encode out :json (merge {:transform transit/write-meta} opts)))
