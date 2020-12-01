@@ -1,10 +1,10 @@
 {:paths
  ["src"]
  :deps
- {org.clojure/clojure         {:mvn/version "1.10.1" :scope "provided"}
-  org.clojure/clojurescript   {:mvn/version "1.10.773" :scope "provided"}
-  com.cognitect/transit-clj   {:mvn/version "1.0.324"}
-  com.cognitect/transit-cljs  {:mvn/version "0.8.264"}
-  lambdaisland/fetch          {:mvn/version "0.0.16"}
-  appliedscience/js-interop   {:mvn/version "0.2.5"}
-  kitchen-async/kitchen-async {:mvn/version "0.1.0-SNAPSHOT"}}}
+ {org.clojure/clojure        {:mvn/version "1.10.1" :scope "provided"}
+  org.clojure/clojurescript  {:mvn/version "1.10.773" :scope "provided"}
+  com.cognitect/transit-clj  {:mvn/version "1.0.324"}
+  com.cognitect/transit-cljs {:mvn/version "0.8.264"}
+  lambdaisland/fetch         {:mvn/version "0.0.16"}
+  appliedscience/js-interop  {:mvn/version "0.2.5"}
+  mhuebert/kitchen-async     {:mvn/version "0.1.0"}}}

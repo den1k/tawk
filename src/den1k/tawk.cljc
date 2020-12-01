@@ -6,14 +6,14 @@
         [[kitchen-async.promise :as p]
          [applied-science.js-interop :as j]
          [lambdaisland.fetch :as fetch]]))
-  (:refer-clojure :exclude [send])
+  (:refer-clojure :exclude [get])
   #?(:clj (:import (java.io InputStream ByteArrayOutputStream)
                    (com.cognitect.transit ReadHandler WriteHandler)
                    (clojure.lang PersistentTreeMap PersistentArrayMap MapEntry))))
 
 ;; CLJS
 
-(def send-url
+(def dispatch-url
   #?(:cljs
      (delay
        (str (j/get-in js/window [:location :origin])
@@ -33,31 +33,51 @@
       {"sorted-map" (t/read-handler (fn [x] (into (sorted-map) x)))
        "array-map"  (t/read-handler (fn [x] (apply array-map x)))}}))
 
-(def reader (delay (t/reader :json default-decoding-opts)))
+#?(:cljs
+   (defn reader [] (t/reader :json default-decoding-opts)))
 
-(def read-transit
+#?(:cljs
+   (defn writer [] (t/writer :json default-encoding-opts)))
+
+#?(:cljs
+   (def fetch-transit-opts
+     (delay
+       {:transit-json-writer (writer)
+        :transit-json-reader (reader)})))
+
+(defn get [url & [opts]]
   #?(:cljs
-     (fn [transit]
-       (t/read @reader transit))))
+     (fetch/get url (into opts @fetch-transit-opts))))
 
-(def writer (delay (t/writer :json default-encoding-opts)))
-
-(def write-transit
+(defn post [url & [opts]]
   #?(:cljs
-     (let [writer (t/writer :json default-encoding-opts)]
-       (fn [transit]
-         (t/write writer transit)))))
+     (fetch/request
+       url
+       (-> opts
+           (assoc :method post)
+           (into @fetch-transit-opts)))))
 
 (defn dispatch [dispatch-vec cb]
   #?(:cljs
      (p/then
-       (fetch/post @send-url
-                  {:body                dispatch-vec
-                   :transit-json-writer @writer
-                   :transit-json-reader @reader})
-       (comp cb :body))))
+       (fetch/post @dispatch-url
+                   (assoc @fetch-transit-opts :body dispatch-vec))
+       (fn [{:as resp :keys [status body]}]
+         (if (= 200 status)
+           (cb body)
+           (js/console.error "den1k.tawk/dispatch error: " resp))))))
 
 (comment
+
+  (def read-transit
+    #?(:cljs
+       (fn [transit]
+         (t/read (reader) transit))))
+
+  (def write-transit
+    #?(:cljs
+       (fn [transit]
+         (t/write (writer) transit))))
 
   (defn roundtrip [x]
     (-> x
@@ -88,7 +108,7 @@
      "Resolve and apply Transit's JSON/MessagePack encoding."
      [out type & [opts]]
      (let [output (ByteArrayOutputStream.)]
-       (t/write (t/writer output type (merge opts default-writer-options)) out)
+       (t/write (t/writer output type (into opts default-writer-options)) out)
        (.toByteArray output))))
 
 #?(:clj
@@ -107,7 +127,7 @@
    (defn parse-transit
      "Resolve and apply Transit's JSON/MessagePack decoding."
      [^InputStream in type & [opts]]
-     (t/read (t/reader in type (merge default-reader-options opts)))))
+     (t/read (t/reader in type (into default-reader-options opts)))))
 
 (comment
 
