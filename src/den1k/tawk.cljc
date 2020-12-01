@@ -3,10 +3,9 @@
   (:require
     [cognitect.transit :as t]
     #?@(:cljs
-        [[cljs.core.async :as a :refer [go <!]]
-         [cljs-http.client :as http]
-         ;[kitchen-async.promise :as p]
-         [applied-science.js-interop :as j]]))
+        [[kitchen-async.promise :as p]
+         [applied-science.js-interop :as j]
+         [lambdaisland.fetch :as fetch]]))
   (:refer-clojure :exclude [send])
   #?(:clj (:import (java.io InputStream ByteArrayOutputStream)
                    (com.cognitect.transit ReadHandler WriteHandler)
@@ -14,10 +13,11 @@
 
 ;; CLJS
 
-(defn send-url []
+(def send-url
   #?(:cljs
-     (str (j/get-in js/window [:location :origin])
-          "/dispatch")))
+     (delay
+       (str (j/get-in js/window [:location :origin])
+            "/dispatch"))))
 
 (def default-encoding-opts
   #?(:cljs
@@ -33,15 +33,14 @@
       {"sorted-map" (t/read-handler (fn [x] (into (sorted-map) x)))
        "array-map"  (t/read-handler (fn [x] (apply array-map x)))}}))
 
-(def ^:private transit-encode-decode-opts
-  {:encoding-opts default-encoding-opts
-   :decoding-opts default-decoding-opts})
+(def reader (delay (t/reader :json default-decoding-opts)))
 
 (def read-transit
   #?(:cljs
-     (let [reader (t/reader :json default-decoding-opts)]
-       (fn [transit]
-         (t/read reader transit)))))
+     (fn [transit]
+       (t/read @reader transit))))
+
+(def writer (delay (t/writer :json default-encoding-opts)))
 
 (def write-transit
   #?(:cljs
@@ -49,26 +48,14 @@
        (fn [transit]
          (t/write writer transit)))))
 
-(defn send [dispatch-vec cb]
+(defn dispatch [dispatch-vec cb]
   #?(:cljs
-     (go
-       (when-let
-         [body (:body
-                 (<! (http/post
-                       (send-url)
-                       {:transit-params dispatch-vec
-                        :transit-opts   transit-encode-decode-opts})))]
-         (cb body)))))
-
-#_(defn send-promise [dispatch-vec]
-  #?(:cljs
-     (p/promise [resolve reject]
-                (go
-                  (when-let [body (:body (<! (http/post
-                                               (send-url)
-                                               {:transit-params dispatch-vec
-                                                :transit-opts   transit-encode-decode-opts})))]
-                    (resolve body))))))
+     (p/then
+       (fetch/post @send-url
+                  {:body                dispatch-vec
+                   :transit-json-writer @writer
+                   :transit-json-reader @reader})
+       (comp cb :body))))
 
 (comment
 

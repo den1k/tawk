@@ -1,23 +1,10 @@
 {:paths
  ["src"]
  :deps
- {org.clojure/clojure        {:mvn/version "1.10.1" :scope "provided"}
-  org.clojure/clojurescript  {:mvn/version "1.10.758" :scope "provided"}
-  org.clojure/core.async     {:mvn/version "1.1.587"}
-  com.cognitect/transit-clj  {:mvn/version "1.0.324"}
-  com.cognitect/transit-cljs {:mvn/version "0.8.264"}
-
-  appliedscience/js-interop  {:mvn/version "0.2.5"}
-  cljs-http                  {:mvn/version "0.1.46"}
-  ;kitchen-async              {:mvn/version "0.1.0-SNAPSHOT"}
-
-  }
- :aliases
- {:test {:extra-paths ["test"]
-         :extra-deps  {org.clojure/test.check {:mvn/version "1.0.0"}}}
-  :runner
-        {:extra-deps {com.cognitect/test-runner
-                      {:git/url "https://github.com/cognitect-labs/test-runner"
-                       :sha     "f7ef16dc3b8332b0d77bc0274578ad5270fbfedd"}}
-         :main-opts  ["-m" "cognitect.test-runner"
-                      "-d" "test"]}}}
+ {org.clojure/clojure         {:mvn/version "1.10.1" :scope "provided"}
+  org.clojure/clojurescript   {:mvn/version "1.10.773" :scope "provided"}
+  com.cognitect/transit-clj   {:mvn/version "1.0.324"}
+  com.cognitect/transit-cljs  {:mvn/version "0.8.264"}
+  lambdaisland/fetch          {:mvn/version "0.0.16"}
+  appliedscience/js-interop   {:mvn/version "0.2.5"}
+  kitchen-async/kitchen-async {:mvn/version "0.1.0-SNAPSHOT"}}}
