@@ -43,7 +43,9 @@
    (def fetch-transit-opts
      (delay
        {:transit-json-writer (writer)
-        :transit-json-reader (reader)})))
+        :transit-json-reader (reader)
+        :content-type        :transit-json
+        :accept              :transit-json})))
 
 (defn get [url & [opts]]
   #?(:cljs
