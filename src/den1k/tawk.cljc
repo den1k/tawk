@@ -67,7 +67,9 @@
        (fn [{:as resp :keys [status body]}]
          (if (= 200 status)
            (cb body)
-           (js/console.error "den1k.tawk/dispatch error: " resp))))))
+           (js/console.error
+             "den1k.tawk/dispatch error:"
+             (ex-info body resp)))))))
 
 (comment
 
@@ -91,6 +93,15 @@
 
 ;; CLJ
 
+(defn- deep-merge
+  "Merges data-structures recursively. For sequential colls, creates a union
+  using the same type as the first data-structure"
+  [& [x :as xs]]
+  (cond
+    (or (sequential? x) (set? x)) (into (empty x) cat xs)
+    (map? x) (apply merge-with deep-merge xs)
+    :else (last xs)))
+
 #?(:clj
    (def default-writer-options
      {:handlers
@@ -110,7 +121,12 @@
      "Resolve and apply Transit's JSON/MessagePack encoding."
      [out type & [opts]]
      (let [output (ByteArrayOutputStream.)]
-       (t/write (t/writer output type (into opts default-writer-options)) out)
+       (t/write
+         (t/writer output
+                   type
+                   (cond-> default-writer-options
+                     opts (deep-merge opts)))
+         out)
        (.toByteArray output))))
 
 #?(:clj
@@ -129,7 +145,8 @@
    (defn parse-transit
      "Resolve and apply Transit's JSON/MessagePack decoding."
      [^InputStream in type & [opts]]
-     (t/read (t/reader in type (into default-reader-options opts)))))
+     (t/read (t/reader in type (cond-> default-reader-options
+                                 opts (deep-merge opts))))))
 
 (comment
 
@@ -149,30 +166,35 @@
 
 #?(:clj
    (defn transit-encode-json-with-meta [out & [opts]]
-     (transit-encode out :json (merge {:transform t/write-meta} opts))))
+     (transit-encode out :json (assoc opts :transform t/write-meta))))
 
 #?(:clj
    (def multi-handler-req-dispatch-fn first))
 
+;(ns-unmap *ns* 'multi-handler-response-fn)
 #?(:clj
    (defmulti multi-handler-response-fn
-     (fn [body _handled] (multi-handler-req-dispatch-fn body))))
+     (fn [body _handled & _] (multi-handler-req-dispatch-fn body))))
 
 #?(:clj
    (defmethod multi-handler-response-fn :default
-     [req handled]
+     [req handled & [transit-opts]]
      {:status  200
       :headers {"content-type" "application/transit+json"}
-      :body    (transit-encode handled
-                               :json
-                               {:transform t/write-meta})}))
+      :body    (transit-encode
+                 handled
+                 :json
+                 (cond-> transit-opts
+                   (not (:transform transit-opts))
+                   (assoc :transform t/write-meta)))}))
 
 #?(:clj
    (defn transit-wrap-multi-handler
-     ([handler] (fn [req] (transit-wrap-multi-handler handler req)))
-     ([handler req]
-      (let [body    (parse-transit (:body req) :json)
+     ([handler] (fn [req] (transit-wrap-multi-handler handler req nil)))
+     ([handler req] (transit-wrap-multi-handler handler req nil))
+     ([handler req {:as transit-opts :keys [transform-handled] :or {transform-handled identity}}]
+      (let [body    (parse-transit (:body req) :json transit-opts)
             handled (handler body)]
         ;(merge (select-keys req [:session]))
-        (multi-handler-response-fn body handled)))))
+        (multi-handler-response-fn body (transform-handled handled) transit-opts)))))
 
