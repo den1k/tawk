@@ -59,17 +59,20 @@
            (assoc :method post)
            (into @fetch-transit-opts)))))
 
-(defn dispatch [dispatch-vec cb]
-  #?(:cljs
-     (p/then
-       (fetch/post @dispatch-url
-                   (assoc @fetch-transit-opts :body dispatch-vec))
-       (fn [{:as resp :keys [status body]}]
-         (if (= 200 status)
-           (cb body)
-           (js/console.error
-             "den1k.tawk/dispatch error:"
-             (ex-info body resp)))))))
+(defn dispatch
+  ([dispatch-vec]
+   #?(:cljs (dispatch dispatch-vec p/resolve)))
+  ([dispatch-vec cb]
+   #?(:cljs
+      (p/then
+        (fetch/post @dispatch-url
+                    (assoc @fetch-transit-opts :body dispatch-vec))
+        (fn [{:as resp :keys [status body]}]
+          (if (= 200 status)
+            (cb body)
+            (js/console.error
+              "den1k.tawk/dispatch error:"
+              (ex-info body resp))))))))
 
 (comment
 
